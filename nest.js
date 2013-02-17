@@ -21,7 +21,6 @@
     $('head').append('<link rel="stylesheet" href="./css/nest.css" type="text/css" />');
   }
 
-
     // undefined is used here as the undefined global variable in ECMAScript 3 is
     // mutable (ie. it can be changed by someone else). undefined isn't really being
     // passed in so we can ensure the value of it is truly undefined. In ES5, undefined
@@ -34,8 +33,7 @@
     // Create the defaults once
     var pluginName = "nest",
         defaults = {
-            maxDepth: 2,
-            title: 'List'
+            maxDepth: 2
         };
 
     // The actual plugin constructor
@@ -74,103 +72,16 @@
             _id = guid(),
             obj = {};
 
-        // Logistics
-
-        // if they are neighbors
-        if (dest.next == src) {
-          if(src.next) {
-            _next = src.next;
-            src.next.prev = obj;
-          }
-          if(dest.prev) {
-            _prev = dest.prev;
-            dest.prev.next = obj;
-          } else {
-            _head = obj;
-            src.next.prev = obj;
-          }
-        } else if (dest.prev == src) {
-          if (dest.next) {
-            _next = dest.next;
-            dest.next.prev = obj;
-          };
-          if (src.prev) {
-            _prev = src.prev;
-            src.prev.next = obj;
-          } else {
-            _head = obj;
-            src.next.prev = obj;
-          }
+        if (src && dest) {
+          obj.parent = dest.parent;
+          // Init from two objects
+          initMerge.call(this);
         } else {
-          // not neighbors
-          if (dest.next) {
-            _next = dest.next;
-            dest.next.prev = obj;
-          };
+          // Quick/empty init
 
-          if (dest.prev) {
-            _prev = dest.prev;
-            dest.prev.next = obj;
-          };
-          if (src.prev) src.prev.next = src.next;
-          if (src.next) src.next.prev = src.prev;
         }
 
-        // internal list
-        _list_head = dest;
-        _list_tail = src;
-        dest.prev = null;
-        dest.next = src;
-        src.prev = dest;
-        src.next = null;
-
-        // Create el
-        var $ul, $li, $span;
-        $li = $(document.createElement('li'))
-              .addClass("nest-li")
-              .addClass("nest-li-group")
-              .attr('nest-level', dest.level);
-        $div = $(document.createElement('div'))
-              .addClass("nest-div");
-        $span = $(document.createElement('span'))
-              .addClass('nest-span');
-        $ul = $(document.createElement('ul'))
-              .addClass("nest-ul");
-        $span.mouseenter(function() {
-          bindDrags($li);
-          $li.unbind('dragstart');
-          $li.attr('draggable', false);
-        });
-        $span.mouseleave(function() {
-          $(this).unbind();
-        })
-        bindDrags($div);
-        $li.append($span).append($div).append($ul);
-        dest.$el.after($li);
-        $ul.append(dest.$el).append(src.$el);
-        this.$el = $li;
-        this.$ = function(selector) {
-          return $(selector, _this.$el);
-        };
-
-        group_item_level = dest.level + 1;
-
-        // Prompt for folder name
-        $folder_prompt = prompt();
-        $li.before( $folder_prompt );
-        $folder_prompt.focus();
-
-        // Set ID
-        this.$el.attr('nest-id', _id);
-        $div.attr('nest-id', _id);
-
-        // define props and api
-        obj.$        = this.$;
-        obj.$el      = this.$el;
         obj.group    = true;
-        obj.prev     = _prev;
-        obj.next     = _next;
-        obj.level    = +this.$el.attr('nest-level');
         obj.id       = _id;
         obj.add      = add;
         obj.dump     = dump;
@@ -178,42 +89,219 @@
         obj.deepest  = deepest;
         obj.levelUp  = levelUp;
         obj.setLevel = setLevel;
-        obj.head     = _list_head;
-        obj.tail     = _list_tail;
-
-        // Nest level handling
-        dest.levelUp();
-        src.setLevel(dest.level);
+        obj.setEl    = setEl;
+        obj.setUl    = setUl;
+        obj.fresh    = fresh;
+        obj.listen   = listen;
+        obj.unlisten = unlisten;
 
         // Group functions
 
-        // Add a sub nest item
-        function add(item) {
+        function initMerge() {
           // if they are neighbors
-          if (this.next == item) {
-            if(item.next) {
-              item.next.prev = this;
+          if (dest.next == src) {
+            if(src.next) {
+              _next = src.next;
+              src.next.prev = obj;
             }
-          } else if (this.prev == item) {
-            if (item.prev) {
-              item.prev.next = this;
+            if(dest.prev) {
+              _prev = dest.prev;
+              dest.prev.next = obj;
             } else {
-              _head = this;
-              item.next.prev = this;
+              _head = obj;
+              src.next.prev = obj;
+            }
+          } else if (dest.prev == src) {
+            if (dest.next) {
+              _next = dest.next;
+              dest.next.prev = obj;
+            };
+            if (src.prev) {
+              _prev = src.prev;
+              src.prev.next = obj;
+            } else {
+              _head = obj;
+              src.next.prev = obj;
             }
           } else {
             // not neighbors
-            if (item.prev) item.prev.next = item.next;
-            if (item.next) item.next.prev = item.prev;
+            if (dest.next) {
+              _next = dest.next;
+              dest.next.prev = obj;
+            };
+
+            if (dest.prev) {
+              _prev = dest.prev;
+              dest.prev.next = obj;
+            };
+            if (src.prev) src.prev.next = src.next;
+            if (src.next) src.next.prev = src.prev;
           }
 
+          // internal list
+          _list_head = dest;
+          _list_tail = src;
+          dest.prev = null;
+          dest.next = src;
+          src.prev = dest;
+          src.next = null;
+
+          // Create el
+          var $ul, $li, $span;
+          $li = $(document.createElement('li'))
+                .addClass("nest-li")
+                .addClass("nest-li-group")
+                .attr('nest-level', dest.level);
+          $div = $(document.createElement('div'))
+                .addClass("nest-div");
+          $span = $(document.createElement('span'))
+                .addClass('nest-span');
+          $ul = $(document.createElement('ul'))
+                .addClass("nest-ul");
+          $span.mouseenter(function() {
+            bindDrags($li);
+            $li.unbind('dragstart');
+            $li.attr('draggable', false);
+          });
+          $span.mouseleave(function() {
+            $(this).unbind();
+          })
+          bindDrags( $div );
+          $li.append($span).append($div).append($ul);
+          dest.$el.after($li);
+          $ul.append(dest.$el).append(src.$el);
+          this.$el = $li;
+          this.$ul = $ul;
+          this.$ = function(selector) {
+            return $(selector, _this.$el);
+          };
+
+          group_item_level = dest.level + 1;
+
+          // Prompt for folder name
+          $folder_prompt = prompt();
+          $li.before( $folder_prompt );
+          $folder_prompt.focus();
+
+          // Set ID
+          this.$el.attr('nest-id', _id);
+          $div.attr('nest-id', _id);
+
+          // define props and api
+          obj.$        = this.$;
+          obj.$el      = this.$el;
+          obj.$ul      = this.$ul;
+          obj.prev     = _prev;
+          obj.next     = _next;
+          obj.level    = +this.$el.attr('nest-level');
+          obj.head     = _list_head;
+          obj.tail     = _list_tail;
+          obj.head.parent = obj;
+          obj.tail.parent = obj;
+
+          // Nest level handling
+          dest.levelUp();
+          src.setLevel(dest.level);
+        };
+
+        // Add a sub nest item
+        function add(item) {
+          this.listen();
+          // Same level
+          var delete_parent, ex_parent;
+          if (item.level === this.level) {
+            // if they are neighbors
+            if (this.next == item) {
+              if(item.next) {
+                item.next.prev = this;
+              }
+            } else if (this.prev == item) {
+              if (item.prev) {
+                item.prev.next = this;
+              } else {
+                this.head = this;
+                item.next.prev = this;
+              }
+            } else {
+              // not neighbors
+              if (item.prev) item.prev.next = item.next;
+              if (item.next) item.next.prev = item.prev;
+            }
+          } else { // cross level
+            if (item.prev) {
+              item.prev.next = item.next;
+              if (!item.prev.next) item.parent.head = item.prev;
+            }
+            if (item.next) {
+              item.next.prev = item.prev;
+              if (!item.next.prev) item.parent.tail = item.next;
+            }
+          }
+          ex_parent = item.parent;
+          if (!item.prev && !item.next) {
+            delete_parent = true;
+          }
           this.tail.next  = item;
           item.prev       = this.tail;
           this.tail       = item;
           this.tail.next  = null;
+          item.parent = this;
           this.tail.setLevel(group_item_level);
 
-          this.$('ul:first').append(this.tail.$el);
+          this.$ul.append(this.tail.$el);
+
+          // Trigger item:add event
+          var e = $.Event('item:add', {
+            $el   : this.tail.$el,
+          });
+          this.$el.trigger(e);
+          this.unlisten();
+          // Trigger item:remove event
+          var e = $.Event('item:remove', {
+            $el   : this.tail.$el,
+          });
+          ex_parent.listen();
+          ex_parent.$el.trigger(e);
+          ex_parent.unlisten();
+
+          if (delete_parent) {
+            // Trigger group:remove event
+            var e = $.Event('group:remove', {
+              $el   : ex_parent.$el.clone(),
+            });
+            ex_parent.$el.remove();
+            ex_parent.parent.listen();
+            ex_parent.parent.$el.trigger(e);
+            ex_parent.parent.unlisten();
+            ex_parent = null;
+            delete ex_parent;
+          };
+        };
+
+        function unlisten() {
+          this.$el.unbind('group:add');
+          this.$el.unbind('group:remove');
+          this.$el.unbind('item:add');
+          this.$el.unbind('item:remove');
+        };
+
+        function listen() {
+          this.$el.on('group:add', function(e) {
+            console.log("New group created in:");
+            console.log(this)
+          })
+          this.$el.on('group:remove', function(e) {
+            console.log("Group removed from:")
+            console.log(this)
+          })
+          this.$el.on('item:add', function(e) {
+            console.log("New item added to:")
+            console.log(this)
+          })
+          this.$el.on('item:remove', function(e) {
+            console.log("Item removed from:")
+            console.log(this)
+          })
         };
 
         // Get deepest
@@ -229,11 +317,40 @@
           return Math.max.apply(Math, a);
         };
 
+        function setEl($el) {
+          this.$el = $el;
+          this.$   = function(selector) {
+            return $(selector, $el);
+          };
+        };
+
+        function setUl($el) {
+          this.$ul = $el;
+        };
+
+        function fresh(arr) {
+          // arr is array of id
+          var item,
+              _this = this;
+
+          [].forEach.call(arr, function(id, i) {
+            item = _store[id];
+            item.parent = _this;
+            if (i === 0) {
+              _this.head = item;
+            }
+            if (i === arr.length - 1) {
+              _this.tail = item;
+            };
+          });
+
+        };
+
         // Reset/render the list again
         function reset() {
           var $li, $ul, item;
           // Clear
-          $ul = this.$('ul');
+          $ul = this.$ul;
           $ul.html('');
           // Reattach
           item = this.head;
@@ -247,7 +364,11 @@
         function dump() {
           var item = this.head;
           while(item) {
-            console.log(item.$el);
+            if (item.group) {
+              console.log(item.dump())
+            } else {
+              console.log(item.$el);
+            }
             item = item.next;
           }
         };
@@ -290,7 +411,6 @@
 
         _level = +this.$el.attr('nest-level');
 
-
         return {
 
           // Return a cached selector
@@ -329,10 +449,16 @@
 
         init: function(elements) {
           // Set appropriate classes for styling, events listeners
-          var item, prev;
-          elements.each(function() {
+          var item, prev, group, arr = [];
+
+          group = new NestGroup();
+          group.setEl($main_ul);
+          group.setUl(group.$el);
+
+          elements.each(function(i) {
             item = new NestItem($(this));
             _store[item.id] = item;
+            arr[arr.length] = item.id;
 
             // Head
             if (!prev) {
@@ -345,11 +471,23 @@
               prev = item;
             }
           });
+          group.fresh(arr);
+          group.listen();
+          main_group = group;
           prev = null;
         },
 
         get: function(id) {
           return _store[id];
+        },
+
+        getByClass: function(klass) {
+          var item, arr = [];
+          for(id in _store) {
+            item = _store[id];
+            if (item.$el.hasClass(klass)) arr[arr.length] = item;
+          }
+          return arr;
         },
 
         eval: function(src_id, dest_id) {
@@ -365,6 +503,8 @@
             throw new Error("Can't nest deeper than " + Nest.options.maxDepth);
             return;
           };
+
+          // Max depth check
           if (src.group) {
             if (src.deepest() + 1 > Nest.options.maxDepth) {
               error();
@@ -379,6 +519,18 @@
             };
           }
 
+          // Check if dest is already containing src
+          if (src.parent === dest) {
+            return
+          };
+
+          // Check if intent is to put back into main container
+          if (dest.level === 0 && src.level > 0) {
+            main_group.add(src);
+            return;
+          };
+
+          // Logistics
           if (dest.group) {
             // add to group
             dest.add(src);
@@ -386,8 +538,14 @@
             // form new group
             group = new NestGroup(dest, src);
             _store[group.id] = group;
+            // Trigger group:add event
+            var e = $.Event('group:add', {
+              $group  : group.$el,
+              $head   : group.head.$el,
+              $tail   : group.tail.$el
+            });
+            group.$el.parent('.nest-li-group').trigger(e);
           }
-
         }
       }
 
@@ -396,7 +554,9 @@
     // Helper vars
     // ------------------------
     var maxDepth,
-        $main;
+        main_group,
+        $main,
+        $main_ul;
 
     // Helper functions
     // ------------------------
@@ -462,7 +622,7 @@
 
       var list = arr ? arr : getKeys(map);
 
-      [].forEach.call(list, function(v, i, arr) {
+      [].forEach.call(list, function(v) {
         $el.bind(v, map[v]);
       });
 
@@ -515,46 +675,60 @@
     // ------------------------
     var src_id,
         dest_id,
+        dragged_nest_level,
         drag_start_time = Number(new Date());
 
     function dragStartHandler(e) {
 
-      console.log(this)
-
-      // Show overlay on groups
-      $('.nest-div', $main).addClass('active');
+      if (e.originalEvent) {
+        e = e.originalEvent;
+      };
 
       bindDrags( $('.nest-li-group', $main) )
       $('.nest-li-group', $main).unbind('dragstart');
 
-      if (e.originalEvent) {
-        e = e.originalEvent;
-      };
       // Makes dragged item look opaque
       this.style.opacity = 0.4;
 
       // Tracks id of dragged item
       src_id = $(this).attr('nest-id');
 
+      // Get nest level
+      dragged_nest_level = tracker.get(src_id).level;
+
+      // drag effect
+      e.dataTransfer.effectAllowed = 'move';
+      // e.dataTransfer.setDragImage(document.createElement('img'), 0, 0);
+
     };
 
     function dragEndHandler(e) {
-      // Show overlay on groups
-      $('.nest-div').removeClass('active');
 
       // Unbind unnecessary drag events
       $('.nest-li-group', $main).unbind();
 
       // Makes previously dragged item opaque
+      // $(this).css('top', '0');
+      $('.nest-div:first', $main).removeClass('active');
       this.style.opacity = 1;
       $('ul', $main).removeClass('over');
       $('li', $main).removeClass('over');
     };
 
     function dragOverHandler(e) {
+      if (e.originalEvent) {
+        e = e.originalEvent;
+      };
       if (e.preventDefault) {
         e.preventDefault();
       };
+
+      // if (e.offsetY < 25) {
+      //   $(this).css('top', '2em');
+      // } else {
+      //   $(this).css('top', '-2em');
+      // }
+
       return false;
     };
 
@@ -586,20 +760,30 @@
 
       init: function() {
 
-        var $el = this.$el;
-        $el.addClass('nest-ul main');
+        var $el = this.$el,
+            $h2,
+            $parent,
+            $div;
 
-        // Add Title
-        $el.before('<h2 id="nest-title">' + this.options.title + '</h2>');
+        // Add parent
+        $parent = $(document.createElement('div')).attr('id', 'nest-main');
+        $el.addClass('nest-ul main nest-li-group');
+        $el.before($parent);
+        $parent.append($el)
 
-        // Initialize our tracker
-        tracker.init( $el.children('li') );
+        // Add overlay
+        $div = $(document.createElement('div')).attr('class', 'nest-div');
+        bindDrags( $div );
+        $parent.prepend( $div );
 
         // Housekeeping
         maxDepth = this.options.maxDepth;
-        $main = $('ul.nest-ul.main');
+        $main = $parent;
+        $main_ul = $el;
         Nest.options = this.options;
 
+        // Initialize our tracker
+        tracker.init( $el.children('li') );
       }
 
     };

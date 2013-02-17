@@ -23,34 +23,55 @@
 .nest-folder-input-prompt:focus {
   outline: none;
 }
+#nest-main {
+  position: relative;
+}
 .nest-ul {
-  list-style-type: none;
+  /*list-style-type: none;*/
+
+}
+.nest-ul.main {
+  position: relative;
 }
 .nest-ul.main.over {
   border: 2px dashed #000;
 }
+.nest-ul input + li.nest-li-group {
+  list-style-type: none;
+}
 .nest-ul .nest-li {
+  /*    webkit-transition: 0.5s all ease-out;
+    -moz-transition: 0.5s all ease-out;
+    -ms-transition: 0.5s all ease-out;
+    -o-transition: 0.5s all ease-out;
+    transition: 0.5s all ease-out;
+*/
+
   height: auto;
   width: auto;
-  padding: 1em;
-  z-index: 999;
+  /*padding: 0.5em;*/
+
+  z-index: 99;
   position: relative;
+}
+.nest-ul .nest-li:hover:not(.nest-li-group) {
+  color: #3a93ac;
 }
 .nest-ul .nest-li.nest-li-group {
   height: 100%;
   position: relative;
 }
-.nest-ul .nest-li .nest-div {
+.nest-ul .nest-li.nest-li-group > .nest-div {
   display: none;
   height: 100%;
   width: 100%;
   position: absolute;
-  z-index: -999;
-  margin: -2em;
+  z-index: 0;
+  margin-bottom: -2em;
 }
-.nest-ul .nest-li .nest-div.active {
+.nest-ul .nest-li.nest-li-group > .nest-div.active {
   display: block;
-  z-index: 999;
+  z-index: 99;
 }
 .nest-ul .nest-li .nest-span {
   font-weight: bold;
@@ -58,5 +79,5 @@
   z-index: 0;
 }
 .nest-ul .nest-li.over {
-  border: 2px dashed #000;
+  border: 2px dotted #000;
 }
