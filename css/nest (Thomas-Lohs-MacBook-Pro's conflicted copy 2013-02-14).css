@@ -1,0 +1,46 @@
+/*Nest CSS*/
+/* Prevent the text contents of draggable elements from being selectable. */
+[draggable] {
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.nest-folder-input-prompt {
+  background-color: transparent;
+  border-style: none;
+  font-size: 0.9em;
+  border: none;
+  margin: 0;
+  padding: 0;
+  line-height: 2em;
+  background-color: #fff;
+  -webkit-transition: border linear 0.2s, box-shadow linear 0.2s;
+  -moz-transition: border linear 0.2s, box-shadow linear 0.2s;
+  -o-transition: border linear 0.2s, box-shadow linear 0.2s;
+  transition: border linear 0.2s, box-shadow linear 0.2s;
+}
+.nest-folder-input-prompt:focus {
+  outline: none;
+}
+.nest-ul {
+  list-style-type: none;
+}
+.nest-ul.main.over {
+  border: 2px dashed #000;
+}
+.nest-ul .nest-li {
+  height: 1em;
+  width: 10em;
+  padding: 1em;
+}
+.nest-ul .nest-li.nest-li-group {
+  height: 100%;
+}
+.nest-ul .nest-li .nest-span {
+  font-weight: bold;
+  display: block;
+}
+.nest-ul .nest-li.over {
+  border: 2px dashed #000;
+}
