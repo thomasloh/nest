@@ -33,7 +33,7 @@
     // Create the defaults once
     var pluginName = "nest",
         defaults = {
-            maxDepth: 2
+            maxDepth: 1
         };
 
     // The actual plugin constructor
@@ -53,6 +53,60 @@
     var Nest = {
       options: null
     }
+
+    // css functions
+    function borderize(arr) {
+      arr.each(function() {
+        $(this).css('border', '2px dotted #000');
+      });
+    };
+
+    function unborderize(arr) {
+      arr.each(function() {
+        $(this).css('border', 'none');
+      });
+    };
+
+    function listify($el) {
+
+      var list_item_css = {
+        'height': 'auto',
+        'width': 'auto',
+        'z-index': 99,
+        'position': 'relative'
+      }
+
+      var group_item_css = {
+        'height': '100%',
+        'position': 'relative'
+      }
+
+      var group_item_div_css = {
+        'display': 'none',
+        'height': '100%',
+        'width': '100%',
+        'position': 'absolute',
+        'z-index': 0,
+        'margin-bottom': '-2em'
+      }
+
+      $el.css(list_item_css);
+      $el.mouseenter(function() {
+        if (!$(this).hasClass('nest-li-group')) {
+          $(this).css('color', '#3a93ac');
+        };
+      });
+      $el.mouseleave(function() {
+        $(this).css('color', '');
+      });
+
+      $('.nest-li-group', $el).css(group_item_css);
+      $('.nest-li-group > .nest-div', $el).css(group_item_css);
+      $('.nest-li-group > .nest-div.active', $el).css({
+        'display': 'block',
+        'z-index': 99
+      });
+    };
 
     var tracker = (function(root) {
 
@@ -98,6 +152,11 @@
         // Group functions
 
         function initMerge() {
+
+          // reset css
+          src.$el.css('color', '');
+          dest.$el.css('color', '');
+
           // if they are neighbors
           if (dest.next == src) {
             if(src.next) {
@@ -152,10 +211,16 @@
                 .addClass("nest-li")
                 .addClass("nest-li-group")
                 .attr('nest-level', dest.level);
+          listify($li);
           $div = $(document.createElement('div'))
                 .addClass("nest-div");
           $span = $(document.createElement('span'))
-                .addClass('nest-span');
+                .addClass('nest-span')
+                .css({
+                  'font-weight': 'bold',
+                  'display': 'block',
+                  'z-index': 0
+                })
           $ul = $(document.createElement('ul'))
                 .addClass("nest-ul");
           $span.mouseenter(function() {
@@ -167,7 +232,8 @@
             $(this).unbind();
           })
           bindDrags( $div );
-          $li.append($span).append($div).append($ul);
+          $li.append($span).append($div).append($ul)
+              .css('list-style-type', 'none');
           dest.$el.after($li);
           $ul.append(dest.$el).append(src.$el);
           this.$el = $li;
@@ -206,6 +272,9 @@
 
         // Add a sub nest item
         function add(item) {
+          // reset css
+          $(item).css('color', '');
+          // Listen for nest events
           this.listen();
           // Same level
           var delete_parent, ex_parent;
@@ -404,6 +473,7 @@
            .attr("nest-level", 0)
            .attr('nest-id', guid())
            .addClass("nest-li");
+        listify(this.$el);
         bindDrags(this.$el);
         this.$ = function(selector) {
           return $(selector, _this.$el);
@@ -646,6 +716,7 @@
          if (key_code === 13) {
            $span = $(this).next().children(":first");
            $span.html(v);
+           $(this).next().css('list-style-type', "");
            $(this).val('').remove();
          };
         }
@@ -664,10 +735,33 @@
         return true;
       };
 
+      var input_css = {
+        'background-color': 'transparent',
+        'border-style': 'none',
+        'font-size': '0.9em',
+        'border': 'none',
+        'margin': 0,
+        'padding': 0,
+        'line-height': '2em',
+        'background-color': '#fff',
+        '-webkit-transition': 'border linear .2s,box-shadow linear .2s',
+        '-moz-transition': 'border linear .2s,box-shadow linear .2s',
+        '-o-transition': 'border linear .2s,box-shadow linear .2s',
+        'transition': 'border linear .2s,box-shadow linear .2s'
+      };
+
+      function onFocus() {
+        $(this).css({
+          'outline': 'none'
+        })
+      };
+
       return $(document.createElement('input'))
              .attr('type', 'text')
              .addClass('nest-folder-input-prompt')
              .keyup(keyupHandler)
+             .css(input_css)
+             .focus(onFocus)
              .blur(inputBlurHandler);
     };
 
@@ -711,8 +805,11 @@
       // $(this).css('top', '0');
       $('.nest-div:first', $main).removeClass('active');
       this.style.opacity = 1;
-      $('ul', $main).removeClass('over');
-      $('li', $main).removeClass('over');
+      unborderize($('ul', $main))
+      unborderize($('li', $main))
+
+      // $('ul', $main).removeClass('over');
+      // $('li', $main).removeClass('over');
     };
 
     function dragOverHandler(e) {
@@ -733,11 +830,13 @@
     };
 
     function dragEnterHandler(e) {
-      this.classList.add('over');
+      // this.classList.add('over');
+      borderize($(this))
     };
 
     function dragLeaveHandler(e) {
-      this.classList.remove('over');
+      // this.classList.remove('over');
+      unborderize($(this))
     };
 
     function dragDropHandler(e) {
@@ -766,9 +865,12 @@
             $div;
 
         // Add parent
-        $parent = $(document.createElement('div')).attr('id', 'nest-main');
-        $el.addClass('nest-ul main nest-li-group');
-        $el.before($parent);
+        $parent = $(document.createElement('div'))
+                  .attr('id', 'nest-main')
+                  .css('position', 'relative');
+        $el.addClass('nest-ul main nest-li-group')
+            .css('position', 'relative')
+            .before($parent);
         $parent.append($el)
 
         // Add overlay
