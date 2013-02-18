@@ -9,18 +9,6 @@
 // scripts and/or other plugins which may not be closed properly.
 ;(function ( $, window, document, undefined ) {
 
-  // Import stylesheet
-  var stylesheetExists = false;
-  $('link').each(function() { 
-    if($(this).attr('href') === './css/nest.css') {
-       stylesheetExists = true;
-    }
-  });
-
-  if(stylesheetExists === false) {
-    $('head').append('<link rel="stylesheet" href="./css/nest.css" type="text/css" />');
-  }
-
     // undefined is used here as the undefined global variable in ECMAScript 3 is
     // mutable (ie. it can be changed by someone else). undefined isn't really being
     // passed in so we can ensure the value of it is truly undefined. In ES5, undefined
@@ -55,39 +43,93 @@
     }
 
     // css functions
-    function borderize(arr) {
+    function highlight(arr) {
       arr.each(function() {
-        $(this).css('border', '2px dotted #000');
+
+        if (($(this).hasClass('nest-div') || 
+            ($(this).hasClass('nest-li') && !$(this).hasClass('nest-li-group'))) && 
+            !overlayed) {
+
+          var drag_over_effect = {
+            'background'              : 'rgba(240, 240, 240, 0.8)',
+            '-webkit-box-shadow'      : '0 3px 8px rgba(0, 0, 0, .25)',
+            'box-shadow'              : '0 3px 8px rgba(0, 0, 0, .25)',
+            '-webkit-border-radius'   : '4px',
+            'border-radius'           : '4px',
+            'border'                  : '3px dashed rgb(230, 230, 230)',
+            'box-sizing'              : 'border-box',
+            '-moz-box-sizing'         : 'border-box',
+            '-webkit-box-sizing'      : 'border-box'
+          }
+          $(this).css(drag_over_effect);
+          overlayed = true;
+        };
       });
     };
 
-    function unborderize(arr) {
+    function unhighlight(arr) {
       arr.each(function() {
-        $(this).css('border', 'none');
+
+        var undrag_over_effect = {
+          'background'              : '',
+          '-webkit-box-shadow'      : '',
+          'box-shadow'              : '',
+          '-webkit-border-radius'   : '',
+          'border-radius'           : '',
+          '-webkit-background-clip' : '',
+          'border'                  : '',
+          'box-sizing'              : '',
+          '-moz-box-sizing'         : '',
+          '-webkit-box-sizing'      : ''
+        }
+        $(this).css(undrag_over_effect);
+        overlayed = false;
       });
+    };
+
+    function dragged($el) {
+      var dragged_effect = {
+        'background'              : 'rgba(230, 230, 230, 0.9)',
+        '-webkit-box-shadow'      : '0 3px 8px rgba(0, 0, 0, .25)',
+        'box-shadow'              : '0 3px 8px rgba(0, 0, 0, .25)',
+        '-webkit-border-radius'   : '4px',
+        'border-radius'           : '4px',
+        'border'                  : '3px dashed rgb(240, 240, 240)',
+        'box-sizing'              : 'border-box',
+        '-moz-box-sizing'         : 'border-box',
+        '-webkit-box-sizing'      : 'border-box'
+      };
+      $el.css(dragged_effect);
+    };
+
+    function undragged($el) {
+      var undragged_effect = {
+        'background'              : '',
+        '-webkit-box-shadow'      : '',
+        'box-shadow'              : '',
+        '-webkit-border-radius'   : '',
+        'border-radius'           : '',
+        '-webkit-background-clip' : '',
+        'border'                  : '',
+        'box-sizing'              : '',
+        '-moz-box-sizing'         : '',
+        '-webkit-box-sizing'      : ''
+      };
+      $el.css(undragged_effect);
     };
 
     function listify($el) {
 
       var list_item_css = {
-        'height': 'auto',
-        'width': 'auto',
-        'z-index': 99,
-        'position': 'relative'
+        'height'    : 'auto',
+        'width'     : 'auto',
+        'z-index'   : 100,
+        'position'  : 'relative'
       }
 
       var group_item_css = {
-        'height': '100%',
-        'position': 'relative'
-      }
-
-      var group_item_div_css = {
-        'display': 'none',
-        'height': '100%',
-        'width': '100%',
-        'position': 'absolute',
-        'z-index': 0,
-        'margin-bottom': '-2em'
+        'height'    : '100%',
+        'position'  : 'relative'
       }
 
       $el.css(list_item_css);
@@ -101,16 +143,20 @@
       });
 
       $('.nest-li-group', $el).css(group_item_css);
-      $('.nest-li-group > .nest-div', $el).css(group_item_css);
-      $('.nest-li-group > .nest-div.active', $el).css({
-        'display': 'block',
-        'z-index': 99
+      $('.nest-ul', $el).css({
+        'padding-top'     : '1em',
+        'padding-bottom'  : '1em',
+        'padding-left'    : '1em'
       });
     };
 
+    // drag events
+    var drag_events = ['dragstart', 'dragend', 'dragover', 'dragenter', 'dragleave', 'drop'];
+
     var tracker = (function(root) {
 
-      var _store = {},
+      var _store  = {},
+          _groups = {},
           _head;
 
       // A nest group class
@@ -129,7 +175,7 @@
         if (src && dest) {
           obj.parent = dest.parent;
           // Init from two objects
-          initMerge.call(this);
+          merge.call(this);
         } else {
           // Quick/empty init
 
@@ -143,6 +189,7 @@
         obj.deepest  = deepest;
         obj.levelUp  = levelUp;
         obj.setLevel = setLevel;
+        obj.overlay  = overlay;
         obj.setEl    = setEl;
         obj.setUl    = setUl;
         obj.fresh    = fresh;
@@ -151,7 +198,7 @@
 
         // Group functions
 
-        function initMerge() {
+        function merge() {
 
           // reset css
           src.$el.css('color', '');
@@ -205,19 +252,28 @@
           src.prev = dest;
           src.next = null;
 
+          // div css
+          var group_item_div_css = {
+            'display'       : 'block',
+            'height'        : '80%',
+            'width'         : '100%',
+            'position'      : 'absolute',
+            'z-index'       : 2000,
+            'margin-top'    : '-1em'
+          }
+
           // Create el
           var $ul, $li, $span;
           $li = $(document.createElement('li'))
                 .addClass("nest-li")
                 .addClass("nest-li-group")
                 .attr('nest-level', dest.level);
-          listify($li);
           $div = $(document.createElement('div'))
-                .addClass("nest-div");
+                .addClass("nest-div")
+                .css(group_item_div_css);
           $span = $(document.createElement('span'))
                 .addClass('nest-span')
                 .css({
-                  'font-weight': 'bold',
                   'display': 'block',
                   'z-index': 0
                 })
@@ -234,10 +290,16 @@
           bindDrags( $div );
           $li.append($span).append($div).append($ul)
               .css('list-style-type', 'none');
+          listify($li);
           dest.$el.after($li);
           $ul.append(dest.$el).append(src.$el);
+          $div.mouseover(function() {
+            this.remove();
+          });
           this.$el = $li;
           this.$ul = $ul;
+          this.$span = $span;
+          this.$div  = $div;
           this.$ = function(selector) {
             return $(selector, _this.$el);
           };
@@ -257,6 +319,8 @@
           obj.$        = this.$;
           obj.$el      = this.$el;
           obj.$ul      = this.$ul;
+          obj.$span    = this.$span;
+          obj.$div     = this.$div;
           obj.prev     = _prev;
           obj.next     = _next;
           obj.level    = +this.$el.attr('nest-level');
@@ -345,6 +409,9 @@
             ex_parent = null;
             delete ex_parent;
           };
+
+          // remove any overlay
+          $('.nest-div', $main).remove();
         };
 
         function unlisten() {
@@ -371,6 +438,11 @@
             console.log("Item removed from:")
             console.log(this)
           })
+        };
+
+        // Reattach overlay
+        function overlay() {
+          this.$span.after(this.$div);
         };
 
         // Get deepest
@@ -524,6 +596,7 @@
           group = new NestGroup();
           group.setEl($main_ul);
           group.setUl(group.$el);
+          _store[group.id]  = group;
 
           elements.each(function(i) {
             item = new NestItem($(this));
@@ -543,12 +616,27 @@
           });
           group.fresh(arr);
           group.listen();
-          main_group = group;
           prev = null;
+          return group;
         },
 
         get: function(id) {
           return _store[id];
+        },
+
+        groups: function(opt) {
+          opt || (opt = {})
+          var arr = [];
+          for (i in _groups) {
+            if (opt.exclude) {
+              if (_groups[i].$div.attr('nest-id') !== opt.exclude) {
+                arr[arr.length] = _groups[i];
+              };
+            } else{
+              arr[arr.length] = _groups[i];
+            }
+          }
+          return arr;
         },
 
         getByClass: function(klass) {
@@ -607,7 +695,8 @@
           } else {
             // form new group
             group = new NestGroup(dest, src);
-            _store[group.id] = group;
+            _groups[group.id] = group;
+            _store[group.id]  = group;
             // Trigger group:add event
             var e = $.Event('group:add', {
               $group  : group.$el,
@@ -625,6 +714,8 @@
     // ------------------------
     var maxDepth,
         main_group,
+        overlayed,
+        $main_overlay,
         $main,
         $main_ul;
 
@@ -774,15 +865,9 @@
 
     function dragStartHandler(e) {
 
-      if (e.originalEvent) {
+      if (e.originalEvent) {1
         e = e.originalEvent;
       };
-
-      bindDrags( $('.nest-li-group', $main) )
-      $('.nest-li-group', $main).unbind('dragstart');
-
-      // Makes dragged item look opaque
-      this.style.opacity = 0.4;
 
       // Tracks id of dragged item
       src_id = $(this).attr('nest-id');
@@ -790,26 +875,50 @@
       // Get nest level
       dragged_nest_level = tracker.get(src_id).level;
 
-      // drag effect
-      e.dataTransfer.effectAllowed = 'move';
-      // e.dataTransfer.setDragImage(document.createElement('img'), 0, 0);
+      // set up overlays
+      if (tracker.get(src_id).parent) {
+        if (tracker.get(src_id).parent.$div) {
+          var arr = tracker.groups({
+            exclude: tracker.get(src_id).parent.$div.attr('nest-id')
+          });
+        } else {
+          var arr = tracker.groups();
+        }
+      };
+      [].forEach.call(arr, function(o) {
+        setTimeout(function() {
+          o.overlay();
+        }, 1);
+      });
+      $('.nest-li', $main).css('z-index', 0);
+      bindDrags( $('.nest-li-group', $main) )
+      $('.nest-li-group', $main).unbind('dragstart');
+      bindDrags( $('.nest-div', $main) );
 
+      // Makes dragged item look opaque
+      dragged( $(this) );
+
+      // drag effect
+      e.dataTransfer.effectAllowed = 'copy';
+      // make a transparent img
+      var drag_img = document.createElement('img');
+      drag_img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+      e.dataTransfer.setDragImage(drag_img, 0, 0);
     };
 
     function dragEndHandler(e) {
 
       // Unbind unnecessary drag events
-      $('.nest-li-group', $main).unbind();
+      $('.nest-li-group', $main).unbind(drag_events);
 
       // Makes previously dragged item opaque
-      // $(this).css('top', '0');
-      $('.nest-div:first', $main).removeClass('active');
-      this.style.opacity = 1;
-      unborderize($('ul', $main))
-      unborderize($('li', $main))
-
-      // $('ul', $main).removeClass('over');
-      // $('li', $main).removeClass('over');
+      $('.nest-div', $main).unbind(drag_events);
+      $('.nest-li').css('z-index', 1000);
+      undragged($(this));
+      $main_overlay.unbind(drag_events);
+      $main_overlay.remove();
+      unhighlight($('.nest-div', $main))
+      unhighlight($('li', $main))
     };
 
     function dragOverHandler(e) {
@@ -830,13 +939,29 @@
     };
 
     function dragEnterHandler(e) {
-      // this.classList.add('over');
-      borderize($(this))
+      var this_nest_id    = $(this).attr('nest-id'),
+          this_nest_level = +$(this).attr('nest-level');
+
+      if (e.originalEvent) {
+        e = e.originalEvent;
+      };
+      if (this_nest_level === 0 && tracker.get(src_id).level > 0) {
+        $main.prepend($main_overlay);
+        bindDrags( $main_overlay );
+        highlight($main_overlay);
+        return false;
+      };
+      if (this_nest_id === src_id) {return false};
+      highlight($(this))
     };
 
     function dragLeaveHandler(e) {
-      // this.classList.remove('over');
-      unborderize($(this))
+      var this_nest_id = $(this).attr('nest-id');
+      if (e.originalEvent) {
+        e = e.originalEvent;
+      };
+      if (this_nest_id === src_id) {return false};
+      unhighlight($(this))
     };
 
     function dragDropHandler(e) {
@@ -874,7 +999,22 @@
         $parent.append($el)
 
         // Add overlay
-        $div = $(document.createElement('div')).attr('class', 'nest-div');
+        var group_item_div_css = {
+          'display'       : 'block',
+          'height'        : '100%',
+          'width'         : '100%',
+          'position'      : 'absolute',
+          'top'           : 0,
+          'z-index'       : 2000,
+          'padding'       : '1em'
+        }
+        $div = $(document.createElement('div'))
+               .attr('class', 'nest-div')
+               .css(group_item_div_css);
+        $div.mouseover(function() {
+          $(this).remove();
+        })
+        $main_overlay = $div;
         bindDrags( $div );
         $parent.prepend( $div );
 
@@ -885,7 +1025,8 @@
         Nest.options = this.options;
 
         // Initialize our tracker
-        tracker.init( $el.children('li') );
+        main_group = tracker.init( $el.children('li') );
+        $div.attr('nest-id', main_group.id);
       }
 
     };
