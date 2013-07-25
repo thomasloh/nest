@@ -21,7 +21,8 @@
     // Create the defaults once
     var pluginName = "nest",
         defaults = {
-            maxDepth: 1
+            maxDepth: 2,
+            groupNamePlaceholder: 'Group Name'
         };
 
     // The actual plugin constructor
@@ -31,7 +32,6 @@
       this.options = $.extend( {}, defaults, options );
       this._defaults = defaults;
       this._name = pluginName;
-
       this.init();
     }
 
@@ -185,10 +185,13 @@
 
       var _store  = {},
           _groups = {},
+          _byDomId = {},
           _head;
 
       // A nest group class
-      var NestGroup = function(dest, src) {
+      var NestGroup = function(opts) {
+
+        opts || (opts = {})
 
         var _this = this,
             $folder_prompt,
@@ -198,15 +201,32 @@
             _prev = null,
             group_item_level,
             _id = guid(),
-            obj = {};
+            obj = {},
+            src, dest;
+        src = opts.src || false;
+        dest = opts.dest || false;
+        group = opts.group || false;
+        level = (typeof opts.level === 'number') ? +opts.level : false;
 
         if (src && dest) {
           obj.parent = dest.parent;
           // Init from two objects
           merge.call(this);
+        } else if (group && level >= 0) {
+          // from a group of items
+          var els = createGroupEl(level);
+          obj.$el = els.$li;
+          obj.$ = function(selector) {
+            return $(selector, obj.$el);
+          };
+          obj.$ul = obj.$('ul');
+          obj.$('span').html(group.$el.html())
+          obj.$el.attr('id', group.$el.attr('id'));
+          obj.$el.attr('nest-id', group.$el.attr('nest-id'));
+          _id = obj.$el.attr('nest-id');
+          els.$div.attr('nest-id', _id);
         } else {
           // Quick/empty init
-
         }
 
         obj.group    = true;
@@ -223,8 +243,74 @@
         obj.fresh    = fresh;
         obj.listen   = listen;
         obj.unlisten = unlisten;
+        obj.dispose  = dispose;
 
         // Group functions
+
+        function createGroupEl(lvl, opts) {
+
+          opts || (opts = {})
+
+          // listeners
+          function changeName() {
+            obj.prev_name = $(this).html();
+            $(this).html('');
+            var $input = prompt();
+            $li.before( $input );
+            $input.focus();
+          }
+
+          // div css
+          var group_item_div_css = {
+            'display'       : 'none',
+            'height'        : '90%',
+            'width'         : '100%',
+            'position'      : 'absolute',
+            'z-index'       : 2000
+          }
+
+          // Create el
+          var $ul, $li, $span, $div;
+          var _this = this;
+          $li = $(document.createElement('li'))
+                .addClass("nest-li")
+                .addClass("nest-li-group")
+                .attr('nest-level', lvl);
+          $div = $(document.createElement('div'))
+                .addClass("nest-div")
+                .css(group_item_div_css);
+          $span = $(document.createElement('span'))
+                .addClass('nest-span')
+                .css({
+                  'display'    : 'block',
+                  'float'      : 'none',
+                  'min-height' : 0,
+                  'z-index'    : 1500,
+                  'height'     : 'auto'
+                });
+          $ul = $(document.createElement('ul'))
+                .addClass("nest-ul");
+          $span.mouseenter(function() {
+            bindDrags($li);
+            $li.unbind('dragstart');
+            $li.attr('draggable', false);
+          });
+          $span.dblclick(changeName);
+          bindDrags( $div );
+          $li.append($span)
+             .append($div)
+             .append($ul);
+          if (opts.listify) {
+            $li.css('list-style-type', 'none');
+          };
+          listify($li);
+          return {
+            $li: $li,
+            $ul: $ul,
+            $span: $span,
+            $div: $div
+          };
+        };
 
         function merge() {
 
@@ -236,9 +322,8 @@
               $el   : parent.$el.clone(),
             });
             parent.$el.remove();
-            parent.parent.listen();
             parent.parent.$el.trigger(e);
-            parent.parent.unlisten();
+            // parent.parent.unlisten();
             parent = null;
             delete parent;
           }
@@ -258,7 +343,9 @@
               dest.prev.next = obj;
             } else {
               _head = obj;
-              src.next.prev = obj;
+              if (src.next) {
+                src.next.prev = obj;
+              };
             }
           } else if (dest.prev == src) {
             if (dest.next) {
@@ -270,7 +357,9 @@
               src.prev.next = obj;
             } else {
               _head = obj;
-              src.next.prev = obj;
+              if (src.next) {
+                src.next.prev = obj;
+              };
             }
           } else {
             // not neighbors
@@ -295,65 +384,27 @@
           src.prev = dest;
           src.next = null;
 
-          // div css
-          var group_item_div_css = {
-            'display'       : 'none',
-            'height'        : '90%',
-            'width'         : '100%',
-            'position'      : 'absolute',
-            'z-index'       : 2000
-          }
-
           // listeners
           function changeName() {
             obj.prev_name = $(this).html();
             $(this).html('');
-            $li.before( prompt() );
+            var $input = prompt();
+            $li.before( $input );
+            $input.focus();
           }
           obj.changeName = changeName;
 
-          // Create el
-          var $ul, $li, $span;
-          var _this = this;
-          $li = $(document.createElement('li'))
-                .addClass("nest-li")
-                .addClass("nest-li-group")
-                .attr('nest-level', dest.level);
-          $div = $(document.createElement('div'))
-                .addClass("nest-div")
-                .css(group_item_div_css);
-          $span = $(document.createElement('span'))
-                .addClass('nest-span')
-                .css({
-                  'display'    : 'block',
-                  'float'      : 'none',
-                  'min-height' : 0,
-                  'z-index'    : 1500
-                })
-          $ul = $(document.createElement('ul'))
-                .addClass("nest-ul");
-          $span.mouseenter(function() {
-            bindDrags($li);
-            $li.unbind('dragstart');
-            $li.attr('draggable', false);
-          });
-          $span.dblclick(changeName);
-          $span.mouseleave(function() {
-            $(this).unbind();
-          })
-          bindDrags( $div );
-          $li.append($span).append($div).append($ul)
-              .css('list-style-type', 'none');
-          listify($li);
-          dest.$el.after($li);
-          $ul.append(dest.$el).append(src.$el);
-          $div.mouseover(function() {
+          var els = createGroupEl.call(this, dest.level, {listify: true});
+          els.$div.attr('nest-id', els.$li.attr('nest-id'));
+          dest.$el.after(els.$li);
+          els.$ul.append(dest.$el).append(src.$el);
+          els.$div.mouseover(function() {
             this.remove();
           });
-          this.$el = $li;
-          this.$ul = $ul;
-          this.$span = $span;
-          this.$div  = $div;
+          this.$el = els.$li;
+          this.$ul = els.$ul;
+          this.$span = els.$span;
+          this.$div  = els.$div;
           this.$ = function(selector) {
             return $(selector, _this.$el);
           };
@@ -362,12 +413,12 @@
 
           // Prompt for folder name
           $folder_prompt = prompt();
-          $li.before( $folder_prompt );
+          els.$li.before( $folder_prompt );
           $folder_prompt.focus();
 
           // Set ID
-          this.$el.attr('nest-id', _id);
-          $div.attr('nest-id', _id);
+          els.$li.attr('nest-id', _id);
+          els.$div.attr('nest-id', _id);
 
           // define props and api
           obj.$        = this.$;
@@ -389,11 +440,10 @@
         };
 
         // Add a sub nest item
-        function add(item) {
+        function add(item, opts) {
+          opts || (opts = {})
           // reset css
-          $(item).css('color', '');
-          // Listen for nest events
-          this.listen();
+          item.$el.css('color', '');
           // Same level
           var delete_parent, ex_parent;
           if (item.level === this.level) {
@@ -428,40 +478,53 @@
           if (!item.prev && !item.next) {
             delete_parent = true;
           }
-          this.tail.next  = item;
-          item.prev       = this.tail;
-          this.tail       = item;
-          this.tail.next  = null;
-          item.parent = this;
-          this.tail.setLevel(group_item_level);
+          if (!this.head) {
+            this.head = item;
+          };
+          if (this.tail) {
+            this.tail.next  = item;
+            item.prev       = this.tail;
+            this.tail       = item;
+            this.tail.next  = null;
+          } else {
+            this.tail = item;
+          }
 
+          item.parent = this;
+          if (this.level === undefined) {
+            this.setLevel(0);
+          };
+          this.tail.setLevel(this.level + 1);
           this.$ul.append(this.tail.$el);
 
           // Trigger item:add event
-          var e = $.Event('item:add', {
-            $el   : this.tail.$el,
-          });
-          this.$el.trigger(e);
-          this.unlisten();
-          // Trigger item:remove event
-          var e = $.Event('item:remove', {
-            $el   : this.tail.$el,
-          });
-          ex_parent.listen();
-          ex_parent.$el.trigger(e);
-          ex_parent.unlisten();
-
-          if (delete_parent) {
-            // Trigger group:remove event
-            var e = $.Event('group:remove', {
-              $el   : ex_parent.$el.clone(),
+          if (!opts.silent) {
+            var e = $.Event('item:add', {
+              $el    : this.tail.$el,
+              $group : this.$el
             });
+            this.$el.trigger(e);
+            // Trigger item:remove event
+            if (ex_parent) {
+              var e = $.Event('item:remove', {
+                $from : ex_parent.$el,
+                $el   : this.tail.$el,
+              });
+              ex_parent.$el.trigger(e);
+            };
+          };
+
+          if (delete_parent && ex_parent) {
+            if (!opts.silent) {
+              // Trigger group:remove event
+              var e = $.Event('group:remove', {
+                $el   : ex_parent.$el.clone(),
+              });
+              ex_parent.$el.html(ex_parent.$('.nest-span').html()).removeClass('nest-li-group');
+              ex_parent.parent.$el.trigger(e);
+            };
+            ex_parent.group = false;
             ex_parent.$el.remove();
-            ex_parent.parent.listen();
-            ex_parent.parent.$el.trigger(e);
-            ex_parent.parent.unlisten();
-            ex_parent = null;
-            delete ex_parent;
           };
 
           // remove any overlay
@@ -503,6 +566,13 @@
           this.$span.after(this.$div);
         };
 
+        function dispose() {
+          var item = this.head, next = item;
+          while(next) {
+            next = next.next;
+          }
+        };
+
         // Get deepest
         function deepest() {
           var item = this.head,
@@ -531,7 +601,6 @@
           // arr is array of id
           var item,
               _this = this;
-
           [].forEach.call(arr, function(id, i) {
             item = _store[id];
             item.parent = _this;
@@ -647,6 +716,7 @@
 
       return {
 
+
         init: function(elements) {
           // Set appropriate classes for styling, events listeners
           var item, prev, group, arr = [];
@@ -659,6 +729,7 @@
           elements.each(function(i) {
             item = new NestItem($(this));
             _store[item.id] = item;
+            _byDomId[item.$el.attr('id')] = item;
             arr[arr.length] = item.id;
 
             // Head
@@ -673,13 +744,76 @@
             }
           });
           group.fresh(arr);
-          group.listen();
+          // group.listen();
           prev = null;
           return group;
         },
 
+        reset: function(arr) {
+
+          // recursive
+          function reset(group, array) {
+            var item, g;
+            var _this = this;
+            // use group.$el.append to add to this list
+
+            [].forEach.call(array, function(o) {
+              // detect groups
+              if (o.children && o.children.length) {
+                // create new group
+                g = new NestGroup({group: _byDomId[o.id], level: _byDomId[o.children[0].id].level});
+                _store[g.id] = g;
+                group.add(g, {silent: true});
+                bindDrags(group.$el);
+                listify(group.$el);
+                reset(g, o.children);
+                g.fresh([].map.call(o.children, function(p){return _byDomId[p.id].id}));
+              } else {
+                // get element
+                item = _byDomId[o.id];
+                bindDrags(item.$el);
+                listify(item.$el);
+                group.add(item, {silent: true});
+              }
+            });
+
+
+          };
+
+          // Empty everything
+          this.clear();
+
+          // Create a new Nest Group
+          var item, prev, group;
+
+          group = new NestGroup();
+          group.setEl($main_ul);
+          group.setUl(group.$el);
+          group.$el.attr('nest-id', group.id);
+          $main_overlay.attr('nest-id', group.id);
+          _store[group.id]  = group;
+          main_group = group;
+
+          reset(main_group, arr);
+          main_group.$el.attr('draggable', false);
+          main_group.fresh([].map.call(arr, function(p){return _byDomId[p.id].id}));
+        },
+
         get: function(id) {
           return _store[id];
+        },
+
+        clear: function() {
+          $('.nest-ul.main', $main).empty();
+          for (i in _store) {
+            _store[i].parent = null;
+            _store[i].next = null;
+            _store[i].prev = null;
+            _store[i].setLevel(0);
+            if (_store[i].group) {
+              delete _store[i];
+            };
+          }
         },
 
         groups: function(opt) {
@@ -716,22 +850,22 @@
           // Make sure destination level doesn't go beyond max depth
           function error() {
             // Hint
-            throw new Error("Can't nest deeper than " + Nest.options.maxDepth);
-            return;
+            // throw new Error("Can't nest deeper than " + Nest.options.maxDepth);
+            return false;
           };
 
           // Max depth check
           if (src.group) {
             if (src.deepest() + 1 > Nest.options.maxDepth) {
-              error();
+              return error();
             };
-          } else if (dest.group) {
-            if (dest.deepest() > Nest.options.maxDepth) {
-              error();
+          } else if (dest.group && dest.$el != main_group.$el) {
+            if (dest.deepest() > Nest.options.maxDepth + 1) {
+              return error();
             };
           } else {
             if (dest.level + 1 > Nest.options.maxDepth) {
-              error();
+              return error();
             };
           }
 
@@ -739,23 +873,17 @@
           if (src.parent === dest) {
             return;
           };
-
           // Logistics
           if (dest.group) {
             // add to group
             dest.add(src);
           } else {
             // form new group
-            group = new NestGroup(dest, src);
+            group = new NestGroup({src: src, dest: dest});
             _groups[group.id] = group;
             _store[group.id]  = group;
-            // Trigger group:add event
-            var e = $.Event('group:add', {
-              $group  : group.$el,
-              $head   : group.head.$el,
-              $tail   : group.tail.$el
-            });
-            group.$el.parent('.nest-li-group').trigger(e);
+            group_forming = group;
+            return group;
           }
         }
       }
@@ -768,6 +896,7 @@
         main_group,
         overlayed,
         timeout,
+        group_forming,
         drag_goingon,
         last_timeout_setup = Number(new Date()),
         main_overlayed,
@@ -846,6 +975,34 @@
 
     }
 
+    function confirmGroupName(v) {
+      var $input = $('.nest-folder-input-prompt', $main);
+      var $span = $input.next().children(":first");
+      var old_name = $span.html();
+      $span.html(v);
+      $input.next().css('list-style-type', "");
+      $input.val('').remove();
+      // Trigger name:change event
+      var id = $span.parent('li.nest-li').attr('nest-id');
+      var e = $.Event('name:change', {
+        old_name   : tracker.get(id).prev_name,
+        new_name   : v
+      });
+      tracker.get(id).$el.trigger(e);
+      $span.dblclick(tracker.get(id).changeName);
+      // Trigger group:add event if a group is being formed
+      if (group_forming) {
+       var e = $.Event('group:add', {
+         $group  : group_forming.$el,
+         $head   : group_forming.head.$el,
+         $tail   : group_forming.tail.$el,
+         name    : v
+       });
+       group_forming.$el.parent('.nest-li-group').trigger(e);
+       group_forming = false;
+      };
+    };
+
     // Input tag to prompt for folder name
     function prompt() {
 
@@ -863,22 +1020,10 @@
         } else {
          // Detects Enter key
          if (key_code === 13) {
-           $span = $(this).next().children(":first");
-           var old_name = $span.html();
-           $span.html(v);
-           $(this).next().css('list-style-type', "");
-           $(this).val('').remove();
-           // Trigger name:change event
-           var id = $span.parent('li.nest-li').attr('nest-id');
-           var e = $.Event('name:change', {
-             old_name   : tracker.get(id).prev_name,
-             new_name   : v
-           });
-           tracker.get(id).$el.trigger(e);
-           $span.dblclick(tracker.get(id).changeName);
-         };
-        }
-      };
+          confirmGroupName(v);
+         } 
+        };
+      }
 
       function inputBlurHandler() {
         var v     = this.value,
@@ -894,18 +1039,19 @@
       };
 
       var input_css = {
-        'position': 'relative',
-        'background': 'transparent',
-        'border-style': 'none',
-        'font-size': '0.9em',
-        'border': 'none',
-        'margin': 0,
-        'padding': 0,
-        'line-height': '2em',
-        '-webkit-box-shadow' : 'none',
-        '-moz-box-shadow': 'none',
-        'box-shadow': 'none',
-        'z-index' : 1500
+        'position'            : 'relative',
+        'background'          : 'transparent',
+        'border-style'        : 'none',
+        'font-size'           : '0.9em',
+        'font-weight'         : '300',
+        'border'              : 'none',
+        'margin'              : '0 0 0.4em 0.3em',
+        'padding'             : '0',
+        'line-height'         : '2em',
+        '-webkit-box-shadow'  : 'none',
+        '-moz-box-shadow'     : 'none',
+        'box-shadow'          : 'none',
+        'z-index'             : '1500'
       };
 
       function onFocus() {
@@ -916,6 +1062,7 @@
 
       return $(document.createElement('input'))
              .attr('type', 'text')
+             .attr('placeholder', Nest.options.groupNamePlaceholder)
              .addClass('nest-folder-input-prompt')
              .keyup(keyupHandler)
              .css(input_css)
@@ -967,7 +1114,7 @@
       _nestedOverlay();
 
       $('.nest-li', $main).css('z-index', 0);
-      bindDrags( $('.nest-li-group', $main) )
+      bindDrags( $('.nest-li-group:not(.main)', $main) )
       $('.nest-li-group', $main).unbind('dragstart');
       bindDrags( $('.nest-div', $main) );
       bindDrags( $main_overlay );
@@ -1035,9 +1182,13 @@
       // If hovering on itself
       if (this_nest_id === src_id) {return false};
 
-      // intent to put back in main container
+      // if hovering over a nest item that would throw level error
+      if (this_nest_level + 1 > Nest.options.maxDepth) {
+        return false;
+      };
 
-      if (this_nest_level === 0 && src.level > 0 && !main_overlayed) {
+      // intent to put back in main container
+      if (this_nest_level === 1 && src.level > 1 && !main_overlayed) {
         $main_overlay.css('display', 'none')
         $main.prepend( $main_overlay );
         $main_overlay.show();
@@ -1069,12 +1220,28 @@
 
     function dragDropHandler(e) {
 
+      if (this.last_handled) {
+        if (Number(new Date) - this.last_handled < 500) {
+          return;
+        };
+        this.last_handled = null;
+      } else {
+        this.last_handled = Number(new Date);
+      }
+
       if (e.originalEvent) {
         e = e.originalEvent;
       };
 
       if (e.stopPropagation) {
         e.stopPropagation(); // stops the browser from redirecting.
+      };
+
+      // If there's an active input, don't allow more grouping
+      if ($('.nest-folder-input-prompt').length) {
+        if (!$('.nest-folder-input-prompt').val()) {
+          return false;
+        };
       };
 
       // Evaluate condition
@@ -1086,6 +1253,12 @@
     Plugin.prototype = {
 
       init: function() {
+
+        // If init with options of array
+        // check if this $el has been initiated
+        // if (this.$el.hasClass('nest-ul')) {
+        //   return this.eval();
+        // };
 
         var $el = this.$el,
             $h2,
@@ -1130,6 +1303,70 @@
         // Initialize our tracker
         main_group = tracker.init( $el.children('li') );
         $div.attr('nest-id', main_group.id);
+      },
+
+      eval: function(options) {
+        var method = options['method'],
+            params = options['arguments'];
+
+        if (this[method]) {
+          this[method].apply(this, params);
+        } else {
+          throw new Error('Nest: no method ' + method);
+        }
+
+      },
+
+      add: function($group, $item) {
+        if (!$group.length) {
+          throw new Error('Group selector not in DOM.');
+        };
+        if (!$item.length) {
+          throw new Error('Selector to be added not in DOM.');
+        };
+        var nest_group, nest_item;
+
+        nest_group = tracker.get($group.attr('nest-id'));
+        nest_item = tracker.get($item.attr('nest-id'));
+        nest_group.add(nest_item);
+      },
+
+      merge: function(group_id, group_name, $src, $dest) {
+        var group = tracker.eval($src.attr('nest-id'), $dest.attr('nest-id'))
+        confirmGroupName(group_name);
+        group.$el.attr('id', group_id);
+      },
+
+      remove: function($el) {
+        var nest_item = tracker.get($el.attr('nest-id')),
+            parent    = nest_item.parent;
+        // head
+        if (nest_item.id === parent.head.id) {
+          parent.head = nest_item.next;
+          nest_item.prev = null;
+        } else if (nest_item.id === parent.tail.id) {
+          // tail
+          nest_item.prev.next = null;
+          parent.tail = nest_item.prev;
+        } else {
+          // anywhere in the middle
+          nest_item.prev.next = nest_item.next;
+          nest_item.next.prev = nest_item.prev;
+        }
+
+        // delete nest item
+        if (nest_item.group) {
+          nest_item.dispose();
+        };
+        delete nest_item;
+
+        // remove $el
+        $el.remove();
+
+      },
+
+      reset: function(arr) {
+        tracker.reset(arr);
       }
 
     };
@@ -1137,9 +1374,19 @@
     // A really lightweight plugin wrapper around the constructor,
     // preventing against multiple instantiations
     $.fn[pluginName] = function ( options ) {
+      var main_arguments = arguments;
       return this.each(function () {
         if (!$.data(this, "plugin_" + pluginName)) {
-            $.data(this, "plugin_" + pluginName, new Plugin( this, options ));
+          $.data(this, "plugin_" + pluginName, new Plugin( this, options ));
+        } else if(typeof options === 'string'){
+          var plugin = $.data(this, "plugin_" + pluginName);
+          // grab params
+          var method_params = {},
+              slice         = Array.prototype.slice;
+
+          method_params['method']    = main_arguments[0];
+          method_params['arguments'] = slice.call(main_arguments, 1);
+          plugin.eval(method_params);
         }
       });
     };

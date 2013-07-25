@@ -5,52 +5,33 @@
     <meta http-equiv="x-ua-compatible" content="IE=9">
     <title>Nest</title>
     <style type="text/css" media="screen">
-
-    body {
-      background: grey;
-    }
-
-/*      ul, li {
-        list-style-type: none;
-      }
-
-      #list{
-        width: 10em;
-        margin: 10em auto auto auto;
-        position: relative;
-      }
-      li {
-        background: transparent;
-        padding: 1em;
-        text-align: center;
-      }
-*/    </style>
+    </style>
   </head>
   <body>
 
     <ul id="list">
-      <li>Apple</li>
-      <li>Orange</li>
-      <li>Watermelon</li>
-      <li>Papaya</li>
-      <li>Kiwi</li>
-      <li>Durian</li>
-      <li>Honeydew</li>
+      <li id="a">Apple</li>
+      <li id="o">Orange</li>
+      <li id="w">Watermelon</li>
+      <li id="p">Papaya</li>
+      <li id="k">Kiwi</li>
+      <li id="d">Durian</li>
+      <li id='h'>Honeydew</li>
     </ul>
-
 
   </body>
   <script type="text/javascript" src="jquery.js"></script>
   <script type="text/javascript" src="../nest.js"></script>
-  <style type="text/css" media="screen">
-
-  </style>
   <script type="text/javascript">
 
       $(function() {
-        $('ul').nest();
+        $('#list').nest();
+        // $('#list').nest('reset', [{id: 'h'}, {id: 'o' , children: [{id: 'p'}, {id: 'd'}]}, {id: 'k', children: [{id: 'w'}]}, {id: 'a'}]);
+        // $('#list').nest('merge', 'awesome', 'Awesome fruits', $('#w'), $('#h'));
+        // $('#list').nest('add', $('#awesome'), $('#h'));
+        // $('#list').nest('add', $('#awesome'), $('#d'));
+        // $('#list').nest('remove', $('#o'));
       })
 
   </script>
-  <script>document.write('<script src="http://' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1"></' + 'script>')</script>
 </html>
